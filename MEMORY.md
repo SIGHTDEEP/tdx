@@ -76,6 +76,7 @@
 
 ## 踩坑记录
 
+- **成交合成 K 线的时区**：`time.Unix` 会恢复为宿主机 `time.Local`；`Trades.Klines()` 必须转回对应成交记录的 `Location()`，否则 UTC+8 的交易日零点在 UTC 主机上落到前一天，导致整日 K 线日期错误。
 - **`.day` 价格是 uint32×(100)** 而非 float32——旧实现用 bytesToFloat 解析价格/成交量完全错误，日期解析也有误（现已修复）。
 - **分钟线价格/成交额是 float32**，必须用 `math.Float32frombits` 转，直接 `Uint32` 得位模式会得到天文数字价格。
 - **float32 精度限制**：分钟线价格以 float32(元) 存，两位小数价格经 float32 往返会差 ±1厘（如 11.2 元→11.199999），测试断言需容差。
@@ -85,3 +86,6 @@
 - `minline/` 目录只有 `.lc1`(1分钟)；5分钟 `.lc5` 实际存放在 `fzline/` 目录。
 - **分钟线拉取/生成工具**：`example/FetchLC1ForTest/main.go` 实时拉取股票/指数 1分钟与5分钟K线，用 `WriteMinute` 生成 `.lc1/.lc5`，输出统一放 `./output/lc1/vipdoc/<sh|sz>/<minline|fzline>/`（供客户端导入测试，需手动复制到通达信 `vipdoc` 目录）。指数分钟线用 `GetIndexAll(TypeKlineMinute/5Minute)`，股票用 `GetKlineMinuteAll`/`GetKline5MinuteAll`。
 - zhb.zip 盘后包内含 46 个配置（tdxstat/tdxstat2/tdxbjmore/tdxhy/tdxzs/tdxbk/gbbq 等），GBK 文本，解析需 `UTF8ToGBK`。
+
+### 逐笔成交交易时间
+- `MTrade.Decode` 与 `MHistoryTrade.Decode` 返回的日期和分钟均按中国市场当地时间（UTC+08:00）解释，不能默认解释为 UTC，也不能依赖宿主机 `TZ`；相应回归测试位于 `protocol/model_trade_timezone_test.go`。
